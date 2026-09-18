@@ -1,0 +1,15 @@
+[Unit]
+Description=TravelWise FastAPI Backend Service
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/travelwise/backend
+Environment="PATH=/var/www/travelwise/backend/venv/bin"
+ExecStart=/var/www/travelwise/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
