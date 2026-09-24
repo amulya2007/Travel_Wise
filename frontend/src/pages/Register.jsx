@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Compass, Mail, Lock, User, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 
 export const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -13,6 +14,12 @@ export const Register = () => {
   const [homeCity, setHomeCity] = useState('Hyderabad');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const from = location.state?.from
+    ? typeof location.state.from === 'string'
+      ? location.state.from
+      : `${location.state.from.pathname || '/dashboard'}${location.state.from.search || ''}`
+    : '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +39,7 @@ export const Register = () => {
         full_name: fullName,
         home_city: homeCity,
       });
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     } catch (err) {
       console.error('Registration error:', err);
       setError(
@@ -57,6 +64,13 @@ export const Register = () => {
             Start planning smart, stress-free trips in seconds
           </p>
         </div>
+
+        {location.state?.from && (
+          <div className="flex items-center space-x-2.5 p-3.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs sm:text-sm">
+            <Sparkles className="w-4 h-4 shrink-0 text-brand-600" />
+            <span>Create an account to select your travel plan, preferences, and generate itineraries.</span>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center space-x-2 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm">
@@ -155,7 +169,11 @@ export const Register = () => {
 
         <div className="text-center text-xs text-slate-500 border-t border-slate-100 pt-5">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">
+          <Link
+            to="/login"
+            state={{ from: location.state?.from }}
+            className="font-semibold text-brand-600 hover:text-brand-700"
+          >
             Sign In
           </Link>
         </div>

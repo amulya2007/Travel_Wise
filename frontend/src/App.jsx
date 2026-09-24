@@ -29,9 +29,16 @@ function App() {
               <Route path="/places" element={<RecommendedPlaces />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/create-trip" element={<CreateTrip />} />
 
-              {/* Protected Routes */}
+              {/* Protected Routes - Only accessible after login */}
+              <Route
+                path="/create-trip"
+                element={
+                  <ProtectedRoute>
+                    <CreateTrip />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={

@@ -13,7 +13,11 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from
+    ? typeof location.state.from === 'string'
+      ? location.state.from
+      : `${location.state.from.pathname || '/dashboard'}${location.state.from.search || ''}`
+    : '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,9 +54,16 @@ export const Login = () => {
             Welcome Back
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-slate-500">
-            Sign in to access your saved itineraries and budgets
+            Sign in to access your saved itineraries and select travel plans
           </p>
         </div>
+
+        {location.state?.from && (
+          <div className="flex items-center space-x-2.5 p-3.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs sm:text-sm">
+            <Sparkles className="w-4 h-4 shrink-0 text-brand-600" />
+            <span>Please log in first to select your travel plan, preferences, and generate itineraries.</span>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center space-x-2 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm">
@@ -126,7 +137,11 @@ export const Login = () => {
 
         <div className="text-center text-xs text-slate-500 border-t border-slate-100 pt-5">
           Don't have an account?{' '}
-          <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">
+          <Link
+            to="/register"
+            state={{ from: location.state?.from }}
+            className="font-semibold text-brand-600 hover:text-brand-700"
+          >
             Create an account
           </Link>
         </div>

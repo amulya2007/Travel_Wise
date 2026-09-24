@@ -76,6 +76,29 @@ export const CreateTrip = () => {
   const [budget, setBudget] = useState(5000);
   const [travelStyle, setTravelStyle] = useState('balanced');
   const [selectedInterests, setSelectedInterests] = useState(['Nature', 'Food', 'Sightseeing']);
+  const [destinationPlaces, setDestinationPlaces] = useState([]);
+  const [selectedPlaceNames, setSelectedPlaceNames] = useState([]);
+
+  // Auto-sync user's home city when user loads
+  useEffect(() => {
+    if (user?.home_city && startingLocation === 'Hyderabad') {
+      setStartingLocation(user.home_city);
+    }
+  }, [user]);
+
+  // Fetch candidate places for the destination city
+  useEffect(() => {
+    const fetchPlaces = async () => {
+      if (!destination) return;
+      try {
+        const res = await placesApi.getPlaces({ city: destination, limit: 12 });
+        setDestinationPlaces(res.data || []);
+      } catch (err) {
+        console.error('Failed to load destination attractions:', err);
+      }
+    };
+    fetchPlaces();
+  }, [destination]);
 
   // Handle interest toggle
   const toggleInterest = (interestId) => {
@@ -88,10 +111,21 @@ export const CreateTrip = () => {
     }
   };
 
+  // Handle specific attraction toggle
+  const togglePlace = (place) => {
+    if (selectedPlaceNames.includes(place.name)) {
+      setSelectedPlaceNames(selectedPlaceNames.filter((name) => name !== place.name));
+    } else {
+      setSelectedPlaceNames([...selectedPlaceNames, place.name]);
+      if (place.category && !selectedInterests.includes(place.category)) {
+        setSelectedInterests([...selectedInterests, place.category]);
+      }
+    }
+  };
+
   const handleGenerate = async () => {
     if (!isAuthenticated) {
-      // Prompt user to sign in or register before submitting trip
-      navigate('/login', { state: { from: { pathname: '/create-trip' } } });
+      navigate('/login', { state: { from: { pathname: '/create-trip', search: searchParams.toString() ? `?${searchParams.toString()}` : '' } } });
       return;
     }
 
@@ -128,8 +162,13 @@ export const CreateTrip = () => {
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Wizard Header */}
-        <div className="text-center max-w-xl mx-auto space-y-2">
-          <div className="inline-flex items-center space-x-2 text-xs font-bold text-brand-600 uppercase tracking-widest">
+        <div className="text-center max-w-xl mx-auto space-y-3">
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200/80 text-xs font-medium text-slate-700 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Signed in as <strong className="text-slate-900 font-semibold">{user?.full_name || user?.email}</strong></span>
+          </div>
+
+          <div className="flex items-center justify-center space-x-2 text-xs font-bold text-brand-600 uppercase tracking-widest">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Step {step} of 3</span>
           </div>
@@ -137,7 +176,7 @@ export const CreateTrip = () => {
             Plan Your Vacation
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Customize duration, destinations, and interests. Our engine will cluster spots and optimize your schedule.
+            Customize duration, destinations, and what you want to experience. Our engine will cluster spots and optimize your schedule.
           </p>
         </div>
 
@@ -446,6 +485,59 @@ export const CreateTrip = () => {
                 })}
               </div>
 
+              {/* Optional Specific Attractions Selection ("What you want to visit") */}
+              {destinationPlaces.length > 0 && (
+                <div className="pt-6 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 font-heading flex items-center space-x-1.5">
+                        <MapPin className="w-4 h-4 text-brand-600" />
+                        <span>Highlights you want in {destination} (Optional)</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Pick individual sights or must-see places you specifically want included.
+                      </p>
+                    </div>
+                    {selectedPlaceNames.length > 0 && (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-100 text-brand-700">
+                        {selectedPlaceNames.length} selected
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {destinationPlaces.slice(0, 6).map((place) => {
+                      const isPicked = selectedPlaceNames.includes(place.name);
+                      return (
+                        <div
+                          key={place.id}
+                          onClick={() => togglePlace(place)}
+                          className={`p-3 rounded-2xl border text-left cursor-pointer transition-all flex items-center justify-between space-x-2 ${
+                            isPicked
+                              ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500/40'
+                              : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 truncate">{place.name}</p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {place.category} • {place.entry_fee === 0 ? 'Free' : `₹${place.entry_fee}`}
+                            </p>
+                          </div>
+                          <div
+                            className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 ${
+                              isPicked ? 'bg-brand-600 text-white' : 'border border-slate-300'
+                            }`}
+                          >
+                            {isPicked && <Check className="w-3 h-3" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Summary Card Before Generating */}
               <div className="mt-8 p-4 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="space-y-1 text-center sm:text-left">
@@ -461,8 +553,11 @@ export const CreateTrip = () => {
                     Budget: {formatCurrency(budget)} • Style: {travelStyle.toUpperCase()}
                   </p>
                 </div>
-                <div className="text-xs text-slate-400 text-right">
-                  <span>{selectedInterests.length} Interests Active</span>
+                <div className="text-xs text-slate-400 text-center sm:text-right space-y-0.5">
+                  <p className="text-white font-semibold">{selectedInterests.length} Interests Active</p>
+                  {selectedPlaceNames.length > 0 && (
+                    <p className="text-brand-300">{selectedPlaceNames.length} Specific Spots Chosen</p>
+                  )}
                 </div>
               </div>
             </div>
