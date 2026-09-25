@@ -126,3 +126,26 @@ async def geocode(query: str, db: Session) -> dict[str, Any]:
     if place:
         return {"label": place.city, "latitude": place.latitude, "longitude": place.longitude, "provider": "curated"}
     raise HTTPException(status_code=404, detail="Location not found. Try a city covered by TravelWise or configure Google Places.")
+
+
+async def reverse_geocode(latitude: float, longitude: float, db: Session) -> dict[str, Any]:
+    """Turns an explicit GPS coordinate into a readable address without storage."""
+    if settings.GOOGLE_MAPS_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=settings.PLACES_PROVIDER_TIMEOUT_SECONDS) as client:
+                response = await client.get(
+                    "https://maps.googleapis.com/maps/api/geocode/json",
+                    params={"latlng": f"{latitude},{longitude}", "key": settings.GOOGLE_MAPS_API_KEY},
+                )
+                response.raise_for_status()
+            result = (response.json().get("results") or [None])[0]
+            if result:
+                return {"label": result.get("formatted_address", "Selected location"), "latitude": latitude, "longitude": longitude, "provider": "google_geocoding"}
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail="Unable to name your current location right now. Nearby places can still be shown.") from exc
+    # Offline catalogue fallback is used only where a known location is nearby;
+    # it never invents a city for a distant coordinate.
+    nearest = min(db.query(Place).all(), key=lambda item: haversine_km(latitude, longitude, item.latitude, item.longitude), default=None)
+    if nearest and haversine_km(latitude, longitude, nearest.latitude, nearest.longitude) <= 25:
+        return {"label": f"{nearest.city}, {nearest.state}" if nearest.state else nearest.city, "latitude": latitude, "longitude": longitude, "provider": "curated"}
+    return {"label": "Current location", "latitude": latitude, "longitude": longitude, "provider": "coordinates"}

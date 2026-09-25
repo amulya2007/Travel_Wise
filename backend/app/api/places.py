@@ -1,15 +1,43 @@
+from io import BytesIO
+from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from uuid import uuid4
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, status, Response, UploadFile
+from PIL import Image
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.database.session import get_db
 from app.models.place import Place
+from app.models.travel_image import TravelImage
 from app.schemas.place import PlaceResponse, PlaceCreate, RecommendationRequest, LocationSearchRequest, NearbyPlaceResponse, GeocodedLocation
+from app.schemas.travel_image import TravelImageResponse
 from app.services.recommendation import get_recommended_places
-from app.services.places_provider import curated_nearby, geocode, google_nearby, fetch_google_photo
+from app.services.places_provider import curated_nearby, geocode, google_nearby, fetch_google_photo, haversine_km, reverse_geocode
 
 router = APIRouter(prefix="/places", tags=["Places"])
+UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
+
+
+def _gps_from_exif(raw: bytes) -> Optional[tuple[float, float]]:
+    """Extract GPS only when a photo explicitly supplies valid EXIF metadata."""
+    try:
+        image = Image.open(BytesIO(raw))
+        gps = image.getexif().get_ifd(34853)
+        if not gps:
+            return None
+        def decimal(values):
+            degrees, minutes, seconds = values
+            as_float = lambda value: float(value[0]) / float(value[1]) if isinstance(value, tuple) else float(value)
+            return as_float(degrees) + as_float(minutes) / 60 + as_float(seconds) / 3600
+        latitude, longitude = decimal(gps[2]), decimal(gps[4])
+        if gps.get(1) in (b"S", "S"):
+            latitude = -latitude
+        if gps.get(3) in (b"W", "W"):
+            longitude = -longitude
+        return latitude, longitude
+    except (OSError, KeyError, TypeError, ValueError, ZeroDivisionError):
+        return None
 
 
 @router.post("/nearby", response_model=List[NearbyPlaceResponse])
@@ -31,6 +59,50 @@ async def get_provider_photo(name: str = Query(..., min_length=1)):
     """Safely proxies a place-owned Google photo without exposing API keys."""
     image, content_type = await fetch_google_photo(name)
     return Response(content=image, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/reverse-geocode", response_model=GeocodedLocation)
+async def reverse_geocode_location(latitude: float = Query(..., ge=-90, le=90), longitude: float = Query(..., ge=-180, le=180), db: Session = Depends(get_db)):
+    return await reverse_geocode(latitude, longitude, db)
+
+
+@router.post("/images/geotag", response_model=TravelImageResponse, status_code=status.HTTP_201_CREATED)
+async def upload_geotagged_image(
+    file: UploadFile = File(...),
+    place_id: Optional[int] = Form(None),
+    manual_latitude: Optional[float] = Form(None),
+    manual_longitude: Optional[float] = Form(None),
+    location_name: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Stores explicit image geography and validates it against an associated place."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="Please upload an image file.")
+    content = await file.read()
+    if not content or len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image must be between 1 byte and 10 MB.")
+    exif_coordinates = _gps_from_exif(content)
+    if (manual_latitude is None) != (manual_longitude is None):
+        raise HTTPException(status_code=422, detail="Provide both manual latitude and longitude, or neither.")
+    coordinates = exif_coordinates or ((manual_latitude, manual_longitude) if manual_latitude is not None else None)
+    if coordinates and not (-90 <= coordinates[0] <= 90 and -180 <= coordinates[1] <= 180):
+        raise HTTPException(status_code=422, detail="Manual coordinates are outside valid geographic bounds.")
+    place = db.query(Place).filter(Place.id == place_id).first() if place_id else None
+    if place_id and not place:
+        raise HTTPException(status_code=404, detail="Selected place was not found.")
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename or "image.jpg").suffix.lower() or ".jpg"
+    filename = f"{uuid4().hex}{suffix}"
+    (UPLOADS_DIR / filename).write_bytes(content)
+    distance = haversine_km(coordinates[0], coordinates[1], place.latitude, place.longitude) if coordinates and place else None
+    record = TravelImage(
+        image_url=f"/uploads/{filename}", original_filename=file.filename or filename,
+        location_name=location_name or (place.name if place else None), place_id=place_id,
+        latitude=coordinates[0] if coordinates else None, longitude=coordinates[1] if coordinates else None,
+        geo_tagged=bool(exif_coordinates), geo_verified=bool(distance is not None and distance <= 2.0), distance_to_place_km=round(distance, 3) if distance is not None else None,
+    )
+    db.add(record); db.commit(); db.refresh(record)
+    return TravelImageResponse.model_validate(record)
 
 
 @router.get("", response_model=List[PlaceResponse])

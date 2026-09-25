@@ -110,8 +110,8 @@ Travel_Wise/
 
 TravelWise always supports its verified, coordinate-based local catalogue. To
 discover live attractions, restaurants, cafes and hotels worldwide, enable
-**Places API (New)** in Google Cloud and add this server-only setting to a
-root `.env` file (copy `.env.example` first):
+**Places API (New)** and the **Geocoding API** in Google Cloud and add this
+server-only setting to a root `.env` file (copy `.env.example` first):
 
 ```env
 GOOGLE_MAPS_API_KEY="your-server-side-google-places-key"

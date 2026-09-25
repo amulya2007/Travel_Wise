@@ -51,6 +51,8 @@ export const placesApi = {
   getRecommendations: (data) => api.post('/places/recommendations', data),
   getNearby: (data) => api.post('/places/nearby', data),
   geocode: (query) => api.get('/places/geocode', { params: { query } }),
+  reverseGeocode: (latitude, longitude) => api.get('/places/reverse-geocode', { params: { latitude, longitude } }),
+  uploadGeoTaggedImage: (formData) => api.post('/places/images/geotag', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
 };
 
 // --- Trips APIs ---

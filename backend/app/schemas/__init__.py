@@ -4,6 +4,7 @@ from app.schemas.trip import TripBase, TripCreate, TripUpdate, TripSummaryRespon
 from app.schemas.itinerary import ItineraryItemBase, ItineraryItemResponse, ItineraryDayResponse, ItineraryResponse
 from app.schemas.budget import BudgetResponse, BudgetCategoryBreakdown
 from app.schemas.checklist import ChecklistItemCreate, ChecklistItemUpdate, ChecklistItemResponse, ChecklistResponse
+from app.schemas.travel_image import TravelImageResponse
 
 __all__ = [
     "UserCreate",
@@ -32,4 +33,5 @@ __all__ = [
     "ChecklistItemUpdate",
     "ChecklistItemResponse",
     "ChecklistResponse",
+    "TravelImageResponse",
 ]
