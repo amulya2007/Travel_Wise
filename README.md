@@ -106,6 +106,23 @@ Travel_Wise/
 
 ---
 
+## Live location discovery
+
+TravelWise always supports its verified, coordinate-based local catalogue. To
+discover live attractions, restaurants, cafes and hotels worldwide, enable
+**Places API (New)** in Google Cloud and add this server-only setting to a
+root `.env` file (copy `.env.example` first):
+
+```env
+GOOGLE_MAPS_API_KEY="your-server-side-google-places-key"
+```
+
+The key is used only by FastAPI. The browser calls `/api/places/nearby` and
+the backend proxies provider-owned photos, so the key is never exposed to the
+frontend. Without it, manual city search and nearby discovery continue to use
+TravelWise's real curated coordinates and show a labelled placeholder instead
+of an unrelated photo.
+
 ## ⚡ Quick Start (Local Development)
 
 ### Option 1: One-Click Launch (Windows)

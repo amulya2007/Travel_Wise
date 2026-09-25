@@ -27,6 +27,8 @@ class PlaceCreate(PlaceBase):
 
 class PlaceResponse(PlaceBase):
     id: int
+    place_id: Optional[str] = None
+    provider: Optional[str] = "curated"
     distance_km: Optional[float] = None
     match_score: Optional[float] = None
 
@@ -50,3 +52,34 @@ class RecommendationRequest(BaseModel):
     number_of_travelers: int = 1
     travel_style: str = "balanced"  # relaxed, balanced, packed
     limit: Optional[int] = 12
+
+
+class LocationSearchRequest(BaseModel):
+    latitude: float
+    longitude: float
+    radius_km: float = 5.0
+    category: Optional[str] = None
+    limit: int = 20
+
+
+class NearbyPlaceResponse(BaseModel):
+    place_id: str
+    provider: str
+    name: str
+    category: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    latitude: float
+    longitude: float
+    distance_km: float
+    rating: Optional[float] = None
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+    estimated_cost: Optional[float] = None
+
+
+class GeocodedLocation(BaseModel):
+    label: str
+    latitude: float
+    longitude: float
+    provider: str

@@ -1,221 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Compass, Crosshair, Filter, LocateFixed, MapPin, Search, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
 import { placesApi } from '../services/api';
 import PlaceCard from '../components/trip/PlaceCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { 
-  Search, 
-  MapPin, 
-  Filter, 
-  Sparkles, 
-  Compass, 
-  SlidersHorizontal,
-  Plus
-} from 'lucide-react';
 
-export const RecommendedPlaces = () => {
+const LOCATION_ERRORS = { 1: 'Location access was not allowed. You can enter a location manually.', 2: 'Unable to determine your location. Please try again or enter a location manually.', 3: 'Location request timed out. Please try again or enter a location manually.' };
+
+export default function RecommendedPlaces() {
   const navigate = useNavigate();
-  const [places, setPlaces] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [places, setPlaces] = useState([]); const [cities, setCities] = useState([]); const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true); const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(''); const [selectedCity, setSelectedCity] = useState(''); const [selectedCategory, setSelectedCategory] = useState('');
+  const [manualLocation, setManualLocation] = useState(''); const [radius, setRadius] = useState(5); const [nearby, setNearby] = useState([]);
+  const [locationLabel, setLocationLabel] = useState(''); const [locationError, setLocationError] = useState('');
+  const [selected, setSelected] = useState(() => JSON.parse(sessionStorage.getItem('travelwise_selected_places') || '[]'));
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  useEffect(() => { (async () => { try { const [p, c, cat] = await Promise.all([placesApi.getPlaces(), placesApi.getCities(), placesApi.getCategories()]); setPlaces(p.data); setCities(c.data); setCategories(cat.data); } catch { setLocationError('Places could not be loaded. Check that the TravelWise backend is running.'); } finally { setLoading(false); } })(); }, []);
+  useEffect(() => { sessionStorage.setItem('travelwise_selected_places', JSON.stringify(selected)); }, [selected]);
+  const filteredPlaces = useMemo(() => places.filter((place) => { const query = searchQuery.toLowerCase(); return (!query || [place.name, place.description, place.city].some((value) => value?.toLowerCase().includes(query))) && (!selectedCity || place.city === selectedCity) && (!selectedCategory || place.category === selectedCategory); }), [places, searchQuery, selectedCity, selectedCategory]);
+  const shownPlaces = nearby.length ? nearby : filteredPlaces;
+  const toggleSelected = (place) => setSelected((current) => current.some((item) => item.place_id === (place.place_id || `curated:${place.id}`)) ? current.filter((item) => item.place_id !== (place.place_id || `curated:${place.id}`)) : [...current, { ...place, place_id: place.place_id || `curated:${place.id}` }]);
+  const findNearby = async (coords, label) => { setNearbyLoading(true); setLocationError(''); try { const response = await placesApi.getNearby({ latitude: coords.latitude, longitude: coords.longitude, radius_km: Number(radius), limit: 20 }); setNearby(response.data); setLocationLabel(label); } catch (error) { setNearby([]); setLocationError(error.response?.data?.detail || 'Unable to find nearby places right now. Please try again.'); } finally { setNearbyLoading(false); } };
+  const useCurrentLocation = () => { setLocationError(''); if (!navigator.geolocation) { setLocationError('Location services are not supported by this browser.'); return; } setNearbyLoading(true); navigator.geolocation.getCurrentPosition((position) => findNearby({ latitude: position.coords.latitude, longitude: position.coords.longitude }, 'Your current location'), (error) => { setNearbyLoading(false); setLocationError(LOCATION_ERRORS[error.code] || 'Unable to determine your location. Please try again or enter a location manually.'); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }); };
+  const searchManualLocation = async (event) => { event.preventDefault(); if (!manualLocation.trim()) return; setNearbyLoading(true); setLocationError(''); try { const result = await placesApi.geocode(manualLocation); await findNearby(result.data, result.data.label); } catch (error) { setNearbyLoading(false); setLocationError(error.response?.data?.detail || 'Unable to find that location.'); } };
+  const continueToPlanner = () => { const curated = selected.filter((place) => place.place_id.startsWith('curated:')).map((place) => place.place_id.replace('curated:', '')); const city = selected[0]?.city || selectedCity; navigate(`/create-trip?${new URLSearchParams({ ...(city ? { city } : {}), ...(curated.length ? { selected: curated.join(',') } : {}) })}`); };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [placesRes, citiesRes, categoriesRes] = await Promise.all([
-          placesApi.getPlaces(),
-          placesApi.getCities(),
-          placesApi.getCategories(),
-        ]);
-        setPlaces(placesRes.data);
-        setCities(citiesRes.data);
-        setCategories(categoriesRes.data);
-      } catch (err) {
-        console.error('Failed to load places data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Filter logic
-  const filteredPlaces = places.filter((place) => {
-    const matchesSearch =
-      !searchQuery ||
-      place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      place.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      place.city.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCity = !selectedCity || place.city === selectedCity;
-    const matchesCategory = !selectedCategory || place.category === selectedCategory;
-
-    return matchesSearch && matchesCity && matchesCategory;
-  });
-
-  return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
-          <div>
-            <div className="inline-flex items-center space-x-2 text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">
-              <Compass className="w-3.5 h-3.5" />
-              <span>Curated Attraction Database</span>
-            </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 font-heading tracking-tight">
-              Explore Destinations & Attractions
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Browse top sights, historical monuments, beaches, and dining spots across India.
-            </p>
-          </div>
-
-          <button
-            onClick={() => navigate('/create-trip')}
-            className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 flex items-center space-x-2"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Generate Itinerary With These Places</span>
-          </button>
-        </div>
-
-        {/* Search & Filter Bar */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Search Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Search className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search spots (e.g. Fort, Beach, Palace)..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white text-slate-900"
-              />
-            </div>
-
-            {/* City Dropdown */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white text-slate-900"
-              >
-                <option value="">All Cities ({cities.length})</option>
-                {cities.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Category Dropdown */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Filter className="w-4 h-4" />
-              </div>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white text-slate-900"
-              >
-                <option value="">All Categories ({categories.length})</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Quick Category Chips */}
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 text-xs">
-            <span className="text-slate-400 shrink-0 font-medium">Quick filter:</span>
-            <button
-              onClick={() => setSelectedCategory('')}
-              className={`px-3 py-1 rounded-full font-medium transition-colors shrink-0 ${
-                selectedCategory === ''
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
-                className={`px-3 py-1 rounded-full font-medium transition-colors shrink-0 ${
-                  selectedCategory === cat
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Places Grid */}
-        {loading ? (
-          <LoadingSpinner text="Fetching places and coordinates..." />
-        ) : filteredPlaces.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200/80 p-8">
-            <Compass className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-800">No matching attractions found</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Try adjusting your city filter or search terms to explore other available locations.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCity('');
-                setSelectedCategory('');
-              }}
-              className="mt-4 px-4 py-2 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 rounded-xl"
-            >
-              Reset all filters
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-slate-500">
-                Showing {filteredPlaces.length} attractions
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredPlaces.map((place) => (
-                <PlaceCard
-                  key={place.id}
-                  place={place}
-                  showSelectBtn={true}
-                  onSelect={() => navigate(`/create-trip?city=${place.city}`)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default RecommendedPlaces;
+  return <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8"><div className="max-w-7xl mx-auto space-y-7">
+    <header className="flex flex-col md:flex-row md:items-end justify-between gap-4"><div><p className="inline-flex items-center gap-2 text-xs font-bold text-brand-600 uppercase tracking-wider"><Compass className="w-4 h-4" /> Curated places & live discovery</p><h1 className="mt-2 text-3xl font-extrabold text-slate-900 font-heading">Explore places that fit your trip</h1><p className="text-sm text-slate-500 mt-1">Browse freely, then sign in only when you are ready to build and save an itinerary.</p></div><button onClick={continueToPlanner} className="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md flex items-center gap-2"><Sparkles className="w-4 h-4" /> Generate itinerary{selected.length ? ` (${selected.length})` : ''}</button></header>
+    <section className="rounded-2xl bg-slate-900 text-white p-5 sm:p-6 shadow-lg"><div className="flex flex-col lg:flex-row lg:items-end gap-5"><div className="flex-1"><p className="text-xs font-bold uppercase tracking-widest text-brand-300">Discover places near you</p><h2 className="text-xl font-bold font-heading mt-1">Use your location, or search a city</h2><p className="text-sm text-slate-300 mt-1">Your coordinates are used only for this search and are never saved.</p></div><div className="flex flex-col sm:flex-row gap-2"><button onClick={useCurrentLocation} disabled={nearbyLoading} className="px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold hover:bg-brand-50 disabled:opacity-60 flex items-center justify-center gap-2"><LocateFixed className="w-4 h-4 text-brand-600" />{nearbyLoading ? 'Getting your location…' : 'Use My Current Location'}</button><form onSubmit={searchManualLocation} className="flex gap-2"><input value={manualLocation} onChange={(e) => setManualLocation(e.target.value)} placeholder="Enter a city or destination" className="min-w-0 w-full sm:w-52 px-3 py-2.5 rounded-xl text-sm text-slate-900" /><button className="px-3 rounded-xl bg-brand-500 hover:bg-brand-400" aria-label="Search location"><Search className="w-4 h-4" /></button></form></div></div><div className="mt-5 flex flex-wrap items-center gap-3"><label className="text-xs text-slate-300">Search radius</label><select value={radius} onChange={(e) => setRadius(e.target.value)} className="text-sm text-slate-900 rounded-lg px-3 py-2">{[1, 5, 10, 25, 50].map((value) => <option key={value} value={value}>{value} km</option>)}</select>{locationLabel && <span className="inline-flex items-center gap-1 text-xs bg-white/10 rounded-lg px-3 py-2"><MapPin className="w-3.5 h-3.5 text-brand-300" /> {locationLabel} · within {radius} km</span>}</div></section>
+    {locationError && <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><AlertCircle className="w-5 h-5 shrink-0" />{locationError}</div>}
+    <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm"><div className="grid grid-cols-1 md:grid-cols-3 gap-3"><label className="relative"><Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search sights, food, beaches…" className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" /></label><label className="relative"><MapPin className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" /><select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setNearby([]); }} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"><option value="">All cities ({cities.length})</option>{cities.map((city) => <option key={city}>{city}</option>)}</select></label><label className="relative"><Filter className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" /><select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"><option value="">All categories ({categories.length})</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label></div></section>
+    {loading || nearbyLoading ? <LoadingSpinner text={nearbyLoading ? 'Finding places with real coordinates…' : 'Loading TravelWise places…'} /> : shownPlaces.length ? <section><div className="flex justify-between items-center mb-4"><p className="text-sm font-semibold text-slate-600">{nearby.length ? `Nearby places, nearest first (${shownPlaces.length})` : `${shownPlaces.length} places to explore`}</p>{nearby.length > 0 && <button onClick={() => { setNearby([]); setLocationLabel(''); }} className="text-xs font-semibold text-brand-700">Browse all curated places</button>}</div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{shownPlaces.map((place) => <PlaceCard key={place.place_id || place.id} place={place} showSelectBtn isSelected={selected.some((item) => item.place_id === (place.place_id || `curated:${place.id}`))} onSelect={toggleSelected} />)}</div></section> : <section className="text-center py-16 bg-white rounded-2xl border border-slate-200"><Crosshair className="w-10 h-10 text-slate-300 mx-auto mb-3" /><h3 className="font-bold">No places found within {radius} km.</h3><p className="text-sm text-slate-500 mt-1">Increase the search radius or try another location.</p><button onClick={() => { setRadius(25); setNearby([]); setSearchQuery(''); setSelectedCity(''); setSelectedCategory(''); }} className="mt-4 inline-flex gap-2 items-center text-sm font-semibold text-brand-700"><RotateCcw className="w-4 h-4" /> Clear filters</button></section>}
+  </div></div>;
+}

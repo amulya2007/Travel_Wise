@@ -78,6 +78,7 @@ export const CreateTrip = () => {
   const [selectedInterests, setSelectedInterests] = useState(['Nature', 'Food', 'Sightseeing']);
   const [destinationPlaces, setDestinationPlaces] = useState([]);
   const [selectedPlaceNames, setSelectedPlaceNames] = useState([]);
+  const selectedPlaceIds = searchParams.get('selected') || '';
 
   // Auto-sync user's home city when user loads
   useEffect(() => {
@@ -99,6 +100,12 @@ export const CreateTrip = () => {
     };
     fetchPlaces();
   }, [destination]);
+
+  useEffect(() => {
+    if (!selectedPlaceIds || !destinationPlaces.length) return;
+    const chosen = new Set(selectedPlaceIds.split(',').map(Number));
+    setSelectedPlaceNames(destinationPlaces.filter((place) => chosen.has(place.id)).map((place) => place.name));
+  }, [selectedPlaceIds, destinationPlaces]);
 
   // Handle interest toggle
   const toggleInterest = (interestId) => {
@@ -142,6 +149,7 @@ export const CreateTrip = () => {
         budget: Number(budget),
         travel_style: travelStyle,
         interests: selectedInterests.join(','),
+        selected_place_ids: selectedPlaceIds,
         auto_generate: true,
       };
 
@@ -521,7 +529,7 @@ export const CreateTrip = () => {
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-bold text-slate-900 truncate">{place.name}</p>
                             <p className="text-[11px] text-slate-500 truncate">
-                              {place.category} • {place.entry_fee === 0 ? 'Free' : `₹${place.entry_fee}`}
+                              {place.category} • {place.estimated_cost === 0 ? 'Free' : `₹${place.estimated_cost}`}
                             </p>
                           </div>
                           <div

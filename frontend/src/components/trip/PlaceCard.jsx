@@ -1,6 +1,7 @@
 import React from 'react';
-import { MapPin, Clock, Star, Sparkles, IndianRupee } from 'lucide-react';
-import { formatCurrency, formatDuration, getCategoryBadgeStyle } from '../../utils/formatters';
+import { MapPin, Clock, Star, IndianRupee, Navigation } from 'lucide-react';
+import { formatCurrency, formatDuration, formatDistance, getCategoryBadgeStyle } from '../../utils/formatters';
+import PlaceImage from './PlaceImage';
 
 export const PlaceCard = ({ place, onSelect, isSelected = false, showSelectBtn = false }) => {
   return (
@@ -13,21 +14,7 @@ export const PlaceCard = ({ place, onSelect, isSelected = false, showSelectBtn =
     >
       {/* Top Banner with Image or Aesthetic Gradient */}
       <div className="relative h-44 w-full overflow-hidden bg-slate-100">
-        {place.image_url ? (
-          <img
-            src={place.image_url}
-            alt={place.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&auto=format&fit=crop&q=60';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-brand-600 via-brand-500 to-ocean-600 flex items-center justify-center text-white p-4">
-            <span className="text-lg font-bold font-heading text-center">{place.name}</span>
-          </div>
-        )}
+        <PlaceImage src={place.image_url} name={place.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
 
         {/* Category Badge & Rating */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
@@ -68,12 +55,19 @@ export const PlaceCard = ({ place, onSelect, isSelected = false, showSelectBtn =
         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
           <div className="flex items-center space-x-1" title="Estimated visit duration">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>{formatDuration(place.estimated_duration)}</span>
+            <span>{formatDuration((place.estimated_duration_hours || place.estimated_duration || 0) * 60)}</span>
           </div>
+
+          {place.distance_km !== undefined && place.distance_km !== null && (
+            <div className="flex items-center space-x-1 font-semibold text-ocean-700" title="Distance from your selected location">
+              <Navigation className="w-3.5 h-3.5" />
+              <span>{formatDistance(place.distance_km)}</span>
+            </div>
+          )}
 
           <div className="flex items-center space-x-1 font-semibold text-slate-800" title="Entry fee per person">
             <IndianRupee className="w-3.5 h-3.5 text-brand-600" />
-            <span>{place.entry_fee === 0 ? 'Free Entry' : formatCurrency(place.entry_fee)}</span>
+            <span>{(place.estimated_cost ?? place.entry_fee) === 0 ? 'Free Entry' : formatCurrency(place.estimated_cost ?? place.entry_fee)}</span>
           </div>
         </div>
 

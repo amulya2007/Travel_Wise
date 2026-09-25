@@ -17,6 +17,7 @@ import {
   HeartHandshake
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import PlaceImage from '../components/trip/PlaceImage';
 
 export const Home = () => {
   const navigate = useNavigate();
@@ -26,7 +27,6 @@ export const Home = () => {
       city: 'Hyderabad',
       state: 'Telangana',
       tagline: 'City of Pearls, Charminar & Royal Biryani',
-      image: 'https://images.unsplash.com/photo-1605649487212-47bdab064df8?w=800&auto=format&fit=crop&q=60',
       placesCount: '12+ Spots',
       avgBudget: '₹4,500 for 2 Days',
     },
@@ -34,7 +34,6 @@ export const Home = () => {
       city: 'Goa',
       state: 'Goa',
       tagline: 'Sun-drenched beaches, forts & coastal dining',
-      image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800&auto=format&fit=crop&q=60',
       placesCount: '15+ Spots',
       avgBudget: '₹7,500 for 3 Days',
     },
@@ -42,7 +41,6 @@ export const Home = () => {
       city: 'Jaipur',
       state: 'Rajasthan',
       tagline: 'Pink City palaces, amber forts & vibrant bazaars',
-      image: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800&auto=format&fit=crop&q=60',
       placesCount: '10+ Spots',
       avgBudget: '₹5,000 for 2 Days',
     },
@@ -50,7 +48,6 @@ export const Home = () => {
       city: 'Bengaluru',
       state: 'Karnataka',
       tagline: 'Garden City parks, craft breweries & palaces',
-      image: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=800&auto=format&fit=crop&q=60',
       placesCount: '8+ Spots',
       avgBudget: '₹4,000 for 2 Days',
     },
@@ -58,7 +55,6 @@ export const Home = () => {
       city: 'Munnar',
       state: 'Kerala',
       tagline: 'Misty tea plantations, waterfalls & hills',
-      image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=800&auto=format&fit=crop&q=60',
       placesCount: '8+ Spots',
       avgBudget: '₹6,000 for 3 Days',
     },
@@ -66,7 +62,6 @@ export const Home = () => {
       city: 'Agra',
       state: 'Uttar Pradesh',
       tagline: 'Taj Mahal wonder, Mughal architecture & crafts',
-      image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=800&auto=format&fit=crop&q=60',
       placesCount: '6+ Spots',
       avgBudget: '₹3,500 for 2 Days',
     },
@@ -236,11 +231,7 @@ export const Home = () => {
                 className="group relative rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200/80 cursor-pointer bg-slate-900"
               >
                 <div className="h-64 w-full overflow-hidden">
-                  <img
-                    src={dest.image}
-                    alt={dest.city}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-90"
-                  />
+                  <PlaceImage name={dest.city} className="w-full h-full" />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-6 text-white">
                   <div className="flex items-center justify-between mb-1">

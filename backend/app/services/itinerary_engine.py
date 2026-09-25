@@ -75,6 +75,10 @@ def generate_trip_itinerary(db: Session, trip: Trip) -> List[ItineraryDay]:
     # Load actual place models
     places_map = {p.id: p for p in db.query(Place).filter(Place.id.in_(place_ids)).all()}
     candidate_places = [places_map[pid] for pid in place_ids if pid in places_map]
+    selected_ids = {int(value) for value in (trip.selected_place_ids or "").split(",") if value.strip().isdigit()}
+    selected_places = [place for place in candidate_places if place.id in selected_ids]
+    if selected_places:
+        candidate_places = selected_places + [place for place in candidate_places if place.id not in selected_ids]
 
     # If no places found, pull any available places
     if not candidate_places:

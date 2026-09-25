@@ -49,6 +49,8 @@ export const placesApi = {
   getCategories: () => api.get('/places/categories'),
   getCities: () => api.get('/places/cities'),
   getRecommendations: (data) => api.post('/places/recommendations', data),
+  getNearby: (data) => api.post('/places/nearby', data),
+  geocode: (query) => api.get('/places/geocode', { params: { query } }),
 };
 
 // --- Trips APIs ---

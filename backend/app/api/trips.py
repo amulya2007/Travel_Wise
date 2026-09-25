@@ -32,6 +32,7 @@ def create_trip(
         budget=trip_in.budget,
         travel_style=trip_in.travel_style,
         interests=trip_in.interests,
+        selected_place_ids=trip_in.selected_place_ids,
         status="planned"
     )
     db.add(trip)
@@ -144,6 +145,9 @@ def update_trip(
         regenerate_needed = True
     if trip_update.interests is not None and trip_update.interests != trip.interests:
         trip.interests = trip_update.interests
+        regenerate_needed = True
+    if trip_update.selected_place_ids is not None and trip_update.selected_place_ids != trip.selected_place_ids:
+        trip.selected_place_ids = trip_update.selected_place_ids
         regenerate_needed = True
     if trip_update.status is not None:
         trip.status = trip_update.status

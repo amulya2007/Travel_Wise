@@ -14,6 +14,7 @@ class TripBase(BaseModel):
     budget: float = Field(default=5000.0, ge=100.0)
     travel_style: str = "balanced"  # relaxed, balanced, packed
     interests: str = "Nature,Food,Sightseeing"
+    selected_place_ids: str = ""
 
 
 class TripCreate(TripBase):
@@ -29,6 +30,7 @@ class TripUpdate(BaseModel):
     budget: Optional[float] = Field(default=None, ge=100.0)
     travel_style: Optional[str] = None
     interests: Optional[str] = None
+    selected_place_ids: Optional[str] = None
     status: Optional[str] = None
 
 

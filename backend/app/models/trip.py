@@ -17,6 +17,7 @@ class Trip(Base):
     budget = Column(Float, nullable=False, default=5000.0)
     travel_style = Column(String(50), default="balanced")  # relaxed, balanced, packed
     interests = Column(Text, default="Nature,Food,Sightseeing")  # Comma separated
+    selected_place_ids = Column(Text, default="")  # Optional curated place IDs
     status = Column(String(50), default="planned")  # draft, planned, active, completed
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

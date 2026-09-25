@@ -61,7 +61,7 @@ export const Login = () => {
         {location.state?.from && (
           <div className="flex items-center space-x-2.5 p-3.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-800 text-xs sm:text-sm">
             <Sparkles className="w-4 h-4 shrink-0 text-brand-600" />
-            <span>Please log in first to select your travel plan, preferences, and generate itineraries.</span>
+            <span>Sign in to create and save your personalized itinerary. Your selected places will be kept for your planner.</span>
           </div>
         )}
 

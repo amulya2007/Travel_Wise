@@ -1,14 +1,36 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.database.session import get_db
 from app.models.place import Place
-from app.schemas.place import PlaceResponse, PlaceCreate, RecommendationRequest
+from app.schemas.place import PlaceResponse, PlaceCreate, RecommendationRequest, LocationSearchRequest, NearbyPlaceResponse, GeocodedLocation
 from app.services.recommendation import get_recommended_places
+from app.services.places_provider import curated_nearby, geocode, google_nearby, fetch_google_photo
 
 router = APIRouter(prefix="/places", tags=["Places"])
+
+
+@router.post("/nearby", response_model=List[NearbyPlaceResponse])
+async def get_nearby_places(request: LocationSearchRequest, db: Session = Depends(get_db)):
+    """Returns provider places when configured, otherwise real catalogue places by coordinate."""
+    if not 0 < request.radius_km <= 50:
+        raise HTTPException(status_code=422, detail="Search radius must be between 0 and 50 km.")
+    provider_results = await google_nearby(request.latitude, request.longitude, request.radius_km, request.category, request.limit)
+    return provider_results or curated_nearby(db, request.latitude, request.longitude, request.radius_km, request.category, request.limit)
+
+
+@router.get("/geocode", response_model=GeocodedLocation)
+async def geocode_location(query: str = Query(..., min_length=2), db: Session = Depends(get_db)):
+    return await geocode(query, db)
+
+
+@router.get("/photo")
+async def get_provider_photo(name: str = Query(..., min_length=1)):
+    """Safely proxies a place-owned Google photo without exposing API keys."""
+    image, content_type = await fetch_google_photo(name)
+    return Response(content=image, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("", response_model=List[PlaceResponse])

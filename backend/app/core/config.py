@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # Default to local SQLite database if Postgres URL is not configured
     DATABASE_URL: str = "sqlite:///./travelwise.db"
 
+    # Google Places is optional for local development, but enables live place
+    # discovery, geocoding and place-owned photos in production. It is read only
+    # on the server and is never sent to the React application.
+    GOOGLE_MAPS_API_KEY: str = ""
+    PLACES_PROVIDER_TIMEOUT_SECONDS: float = 8.0
+
     # CORS
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
