@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { tripsApi } from '../services/api';
+import { tripsApi, placesApi } from '../services/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import PlaceCard from '../components/trip/PlaceCard';
 import { 
   Calendar, 
   MapPin, 
@@ -15,7 +16,12 @@ import {
   Clock, 
   Trash2,
   BookmarkCheck,
-  TrendingUp
+  TrendingUp,
+  ImageUp,
+  BadgeCheck,
+  AlertCircle,
+  LocateFixed,
+  Navigation
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
@@ -25,6 +31,15 @@ export const Dashboard = () => {
 
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [places, setPlaces] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePlaceId, setImagePlaceId] = useState('');
+  const [geoStatus, setGeoStatus] = useState('');
+  const [geoUploading, setGeoUploading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
 
   const fetchTrips = async () => {
     try {
@@ -40,7 +55,69 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchTrips();
+    placesApi.getPlaces({ limit: 100 }).then((res) => setPlaces(res.data || [])).catch(() => {});
   }, []);
+
+  const handleGeoTagUpload = async (event) => {
+    event.preventDefault();
+    if (!imageFile) return;
+    setGeoUploading(true);
+    setGeoStatus('Reading photo location data…');
+    const form = new FormData();
+    form.append('file', imageFile);
+    if (imagePlaceId) form.append('place_id', imagePlaceId);
+    try {
+      const response = await placesApi.uploadGeoTaggedImage(form);
+      const image = response.data;
+      setGeoStatus(
+        image.geo_verified
+          ? `Location verified — photo GPS is ${image.distance_to_place_km} km from the selected place.`
+          : image.geo_tagged
+            ? 'GPS metadata was found, but the photo is not close enough to verify for the selected place.'
+            : 'No GPS metadata was found. The image can be associated with a place, but is not location-verified.'
+      );
+    } catch (error) {
+      setGeoStatus(error.response?.data?.detail || 'Unable to validate this travel image.');
+    } finally {
+      setGeoUploading(false);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    setLocationError('');
+    if (!navigator.geolocation) {
+      setLocationError('Location services are not supported by this browser.');
+      return;
+    }
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        try {
+          const [location, nearby] = await Promise.all([
+            placesApi.reverseGeocode(coordinates.latitude, coordinates.longitude),
+            placesApi.getNearby({ ...coordinates, radius_km: 10, limit: 8 }),
+          ]);
+          setCurrentLocation({ ...location.data, accuracy: position.coords.accuracy });
+          setNearbyPlaces(nearby.data || []);
+        } catch (error) {
+          setLocationError(error.response?.data?.detail || 'Unable to load nearby places right now. Please try again.');
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        const messages = {
+          1: 'Location permission was denied. You can try again whenever you choose.',
+          2: 'Unable to detect your location. Please try again.',
+          3: 'Location request timed out. Please try again.',
+        };
+        setLocationError(messages[error.code] || 'Unable to detect your location.');
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  };
 
   const handleDeleteTrip = async (e, tripId) => {
     e.stopPropagation();
@@ -133,6 +210,55 @@ export const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        <section className="rounded-3xl bg-slate-950 text-white p-6 sm:p-8 shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div>
+              <p className="text-xs uppercase tracking-widest font-bold text-brand-300">Start with where you are</p>
+              <h2 className="mt-1 text-2xl font-extrabold font-heading">Discover places near your current location</h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">Your browser provides the coordinates only when you choose this option. TravelWise uses them for this one nearby search and does not save them.</p>
+            </div>
+            <button onClick={useCurrentLocation} disabled={locationLoading} className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-900 hover:bg-brand-50 disabled:opacity-60">
+              <LocateFixed className="w-4 h-4 text-brand-600" />
+              {locationLoading ? 'Getting precise location…' : 'Use My Current Location'}
+            </button>
+          </div>
+          {currentLocation && <div className="mt-5 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm"><p className="font-bold"><MapPin className="inline w-4 h-4 text-brand-300" /> {currentLocation.label}</p><p className="mt-1 text-xs text-slate-300">Coordinates: {currentLocation.latitude.toFixed(5)}, {currentLocation.longitude.toFixed(5)} · GPS accuracy approximately {Math.round(currentLocation.accuracy)} m</p></div>}
+          {locationError && <p className="mt-4 flex items-center gap-2 text-sm text-amber-200"><AlertCircle className="w-4 h-4" /> {locationError}</p>}
+        </section>
+
+        {nearbyPlaces.length > 0 && <section><div className="mb-4 flex items-center justify-between"><div><h2 className="text-xl font-bold text-slate-900 font-heading">Nearby places</h2><p className="text-sm text-slate-500">Sorted by calculated distance from your current location.</p></div><Link to="/places" className="text-sm font-semibold text-brand-700">Explore all places</Link></div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">{nearbyPlaces.map((place) => <PlaceCard key={place.place_id} place={place} />)}</div></section>}
+
+        {/* Geo-tagging is available immediately for authenticated travelers. */}
+        <section className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-5">
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
+              <ImageUp className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 font-heading">Geo-tag a travel photo</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Upload a photo to read its GPS metadata and verify it against a TravelWise place.</p>
+            </div>
+          </div>
+          <form onSubmit={handleGeoTagUpload} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+            <label className="text-xs font-semibold text-slate-600">
+              Choose travel image
+              <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-sm font-normal" />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              Verify against a place (optional)
+              <select value={imagePlaceId} onChange={(event) => setImagePlaceId(event.target.value)} className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm font-normal text-slate-800">
+                <option value="">No place selected</option>
+                {places.map((place) => <option key={place.id} value={place.id}>{place.name} — {place.city}</option>)}
+              </select>
+            </label>
+            <button type="submit" disabled={!imageFile || geoUploading} className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-brand-700 text-white text-sm font-bold disabled:opacity-50">
+              {geoUploading ? 'Checking…' : 'Verify geo-tag'}
+            </button>
+          </form>
+          <p className="mt-3 text-xs text-slate-500">GPS is extracted only when the image contains EXIF location data. TravelWise never invents coordinates.</p>
+          {geoStatus && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-brand-800"><BadgeCheck className="w-4 h-4" />{geoStatus}</p>}
+        </section>
 
         {/* Active Trip Spotlight */}
         {latestTrip && (

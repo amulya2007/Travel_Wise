@@ -24,9 +24,9 @@ function App() {
           <Navbar />
           <main className="flex-1">
             <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/places" element={<RecommendedPlaces />} />
+              {/* Authentication is required before accessing TravelWise features. */}
+              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/places" element={<ProtectedRoute><RecommendedPlaces /></ProtectedRoute>} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
