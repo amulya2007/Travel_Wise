@@ -1,6 +1,5 @@
-import os
 from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +33,18 @@ class Settings(BaseSettings):
         "http://localhost:80",
         "http://localhost",
     ]
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def normalize_debug(cls, value: Union[str, bool]) -> bool:
+        """Accept common deployment labels without blocking Python startup."""
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "production", "prod", "false", "0", "no", "off"}:
+                return False
+            if normalized in {"development", "dev", "true", "1", "yes", "on"}:
+                return True
+        return value
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

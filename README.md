@@ -106,6 +106,14 @@ Travel_Wise/
 
 ---
 
+## Runtime architecture
+
+TravelWise has no JavaScript backend. The React/Vite application is the only
+JavaScript runtime and is responsible solely for the browser UI. FastAPI
+(Python) owns authentication, database access, recommendation scoring,
+itinerary generation, budgets, checklists, location/geocoding, nearby-place
+distance calculations, provider-photo proxying, and image geo-tag validation.
+
 ## Live location discovery
 
 TravelWise always supports its verified, coordinate-based local catalogue. To

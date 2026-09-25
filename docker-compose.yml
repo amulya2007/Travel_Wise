@@ -24,8 +24,9 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/travelwisedb
-      JWT_SECRET_KEY: supersecretjwtkeyreplaceinproduction12345
+      SECRET_KEY: supersecretjwtkeyreplaceinproduction12345
       ENVIRONMENT: production
+      DEBUG: "false"
     ports:
       - "8000:8000"
     depends_on:
