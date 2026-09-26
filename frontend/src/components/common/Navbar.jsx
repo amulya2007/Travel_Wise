@@ -29,17 +29,15 @@ export const Navbar = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Explore Places', path: '/places', icon: MapPin },
-    { name: 'Plan a Trip', path: '/create-trip', icon: Sparkles, highlight: true },
-    ...(isAuthenticated
-      ? [
-          { name: 'Dashboard', path: '/dashboard', icon: Calendar },
-          { name: 'My Trips', path: '/saved-trips', icon: BookmarkCheck },
-        ]
-      : []),
-  ];
+  const navLinks = isAuthenticated
+    ? [
+        { name: 'Home', path: '/' },
+        { name: 'Explore Places', path: '/places', icon: MapPin },
+        { name: 'Plan a Trip', path: '/create-trip', icon: Sparkles, highlight: true },
+        { name: 'Dashboard', path: '/dashboard', icon: Calendar },
+        { name: 'My Trips', path: '/saved-trips', icon: BookmarkCheck },
+      ]
+    : [];
 
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-slate-200/80 transition-all duration-200 shadow-sm backdrop-blur-md">
